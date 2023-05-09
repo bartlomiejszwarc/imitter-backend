@@ -101,11 +101,13 @@ router.get("/me/:accessToken", (req, res, next) => {
 	if (decodedToken) {
 		res.status(200).json({
 			userData: decodedToken.sub,
+			isAuth: true,
 		});
 	} else {
 		res.status(401).json({
 			message: "Unauthorized",
 			userData: null,
+			isAuth: false,
 		});
 	}
 });
