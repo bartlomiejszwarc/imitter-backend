@@ -145,11 +145,28 @@ router.put(
 	}
 );
 
+//Searching for users
 router.get(
-	"/api/users/:id/followers",
+	"/search/users/:keyword",
 	checkIfAuthenticated,
-	(req, res, next) => {
-		User.findOne;
+	async (req, res, next) => {
+		try {
+			await User.find({
+				$or: [
+					{ username: { $regex: req.params.keyword, $options: "i" } },
+					{ displayName: { $regex: req.params.keyword, $options: "i" } },
+				],
+			}).then((users) => {
+				res.status(200).json({
+					message: "User found",
+					users: users,
+				});
+			});
+		} catch (error) {
+			res.status(404).json({
+				message: "User not found.",
+			});
+		}
 	}
 );
 
