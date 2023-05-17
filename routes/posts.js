@@ -35,13 +35,16 @@ router.post(
 	checkIfAuthenticated,
 	multer({ storage: storage }).single("image"),
 	async (req, res, next) => {
+		const id = new mongoose.Types.ObjectId();
 		const post = new Post({
-			id: new mongoose.Types.ObjectId(),
+			_id: id,
 			text: req.body.text,
 			date: req.body.date,
 			imageUrl: req.body.image,
 			author: req.body.author,
 			likesCounter: req.body.likesCounter,
+			isReply: false,
+			originalPost: id,
 		});
 		await post.save();
 		res.status(201).json({
@@ -50,9 +53,9 @@ router.post(
 	}
 );
 
-//FETCHING DATA
+//FETCHING POSTS
 router.get("/api/posts", checkIfAuthenticated, (req, res, next) => {
-	Post.find({ allowDiskUse: true })
+	Post.find({ allowDiskUse: true, isReply: false })
 		.sort({ date: -1 })
 		.then((documents) => {
 			res.status(200).json({
@@ -122,20 +125,37 @@ router.delete(
 
 //GETTING POST DETAILS
 router.get("/api/posts/:id", async (req, res, next) => {
-	await Post.findById({ _id: req.params.id }).then((document) => {
-		res.status(200).json({
-			message: "Post found",
-			post: document,
+	await Post.findById({ _id: req.params.id })
+		.then((document) => {
+			res.status(200).json({
+				message: "Post found",
+				post: document,
+			});
+		})
+		.catch((err) => {
+			res.status(404).json({
+				message: "Post not found",
+			});
 		});
-	});
 });
 
 //UPDATING POST REPLIES ARRAY
 router.put("/api/posts/:id/replies", async (req, res, next) => {
+	const reply = new Post({
+		id: new mongoose.Types.ObjectId(),
+		text: req.body.text,
+		date: req.body.date,
+		imageUrl: req.body.image,
+		author: req.body.author,
+		likesCounter: req.body.likesCounter,
+		isReply: true,
+		originalPost: req.params.id,
+	});
+	reply.save();
 	Post.findOneAndUpdate(
 		{ _id: req.params.id },
 		{
-			$push: { replies: [req.body] },
+			$push: { replies: reply },
 		}
 	).then((document) => {
 		res.status(200).json({
@@ -168,8 +188,9 @@ router.put("/api/posts/:id", checkIfAuthenticated, (req, res, next) => {
 						$push: { likedByIdArray: [req.body.userId] },
 						$inc: { likesCounter: 1 },
 					}
-				).then((result) => {});
-				res.status(200).json({ message: "Post updated" });
+				).then((result) => {
+					res.status(200).json({ message: "Post updated!", post: result });
+				});
 			}
 		}
 	);

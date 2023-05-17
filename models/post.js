@@ -14,7 +14,9 @@ const postSchema = mongoose.Schema({
 	likesCounter: { type: Number, required: false },
 	imageUrl: { type: String, required: false },
 	likedByIdArray: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-	replies: [mongoose.Schema.Types.ObjectId],
+	replies: [{ type: mongoose.Schema.Types.ObjectId, ref: "Post" }],
+	isReply: { type: Boolean, required: true },
+	originalPost: { type: String, required: true },
 });
 
 module.exports = mongoose.model("Post", postSchema);
