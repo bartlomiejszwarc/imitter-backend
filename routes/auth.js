@@ -28,7 +28,7 @@ const storage = multer.diskStorage({
 
 //REGISTER USER
 router.post(
-	"/signup",
+	"/api/signup",
 	multer({ storage: storage }).single("profilePicture"),
 	async (req, res, next) => {
 		bcrypt.hash(req.body.password, 10).then(async (hash) => {
@@ -58,7 +58,7 @@ router.post(
 );
 
 //LOGIN
-router.post("/login", (req, res, next) => {
+router.post("/api/login", (req, res, next) => {
 	let getUser;
 	User.findOne({ username: req.body.username })
 		.then((user) => {
@@ -78,13 +78,13 @@ router.post("/login", (req, res, next) => {
 					});
 				}
 				const token = jwt.sign({}, process.env.SECRET, {
-					expiresIn: "1h",
+					expiresIn: "5h",
 					subject: JSON.stringify(getUser._id.valueOf()),
 				});
 
 				res.status(200).json({
 					token: token,
-					expiresIn: "1h",
+					expiresIn: "5h",
 					message: "Token created.",
 				});
 			}
@@ -96,7 +96,7 @@ router.post("/login", (req, res, next) => {
 			});
 		});
 });
-router.get("/me/:accessToken", (req, res, next) => {
+router.get("/api/me/:accessToken", (req, res, next) => {
 	const decodedToken = jwt.decode(req.params.accessToken, process.env.SECRET);
 	if (decodedToken) {
 		res.status(200).json({

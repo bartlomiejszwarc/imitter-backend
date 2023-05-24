@@ -41,7 +41,7 @@ const checkUser = function (instance, user, res) {
 };
 
 //GETTING USER'S DATA BY ID
-router.get("/userdata/:userId", (req, res, next) => {
+router.get("/api/userdata/:userId", (req, res, next) => {
 	if (req.params.userId) {
 		User.findById(req.params.userId)
 			.then((userdata) => {
@@ -58,7 +58,7 @@ router.get("/userdata/:userId", (req, res, next) => {
 	}
 });
 
-router.get("/profile/:username", async (req, res, next) => {
+router.get("/api/profile/:username", async (req, res, next) => {
 	const userdata = await User.findOne({ username: req.params.username }).then(
 		(userdata) => {
 			if (userdata) {
@@ -147,7 +147,7 @@ router.put(
 
 //Searching for users
 router.get(
-	"/search/users/:keyword",
+	"/api/search/users/:keyword",
 	checkIfAuthenticated,
 	async (req, res, next) => {
 		try {

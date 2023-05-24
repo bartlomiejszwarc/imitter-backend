@@ -2,6 +2,7 @@ const express = require("express");
 const { expressjwt: jwt } = require("express-jwt");
 const mongoose = require("mongoose");
 const Post = require("../models/post");
+const User = require("../models/user");
 const checkAuth = require("../middleware/check-auth");
 
 const checkIfAuthenticated = jwt({
@@ -65,8 +66,28 @@ router.get("/api/posts", checkIfAuthenticated, (req, res, next) => {
 		});
 });
 
+router.get(
+	"/api/posts/following/:id",
+	checkIfAuthenticated,
+	async (req, res, next) => {
+		const user = await User.find({ _id: req.params.id }).exec();
+		const following = user[0].following;
+
+		Post.find({
+			"author._id": { $in: following },
+		})
+			.sort("-date")
+			.then((posts) => {
+				res.status(200).json({
+					posts: posts,
+					message: "Post found successfully",
+				});
+			});
+	}
+);
+
 //FETCHING USER'S POST FOR USER'S PROFILE
-router.get("/users/:id/posts", checkIfAuthenticated, (req, res, next) => {
+router.get("/api/users/:id/posts", checkIfAuthenticated, (req, res, next) => {
 	var userPosts = Post.find({ "author._id": req.params.id });
 	userPosts
 		.sort("-date")
@@ -84,7 +105,7 @@ router.get("/users/:id/posts", checkIfAuthenticated, (req, res, next) => {
 		});
 });
 //FETCHING USER'S LIKED POSTS FOR USER'S PROFILE
-router.get("/users/:id/likes", checkIfAuthenticated, (req, res, next) => {
+router.get("/api/users/:id/likes", checkIfAuthenticated, (req, res, next) => {
 	Post.find({ likedByIdArray: { $in: req.params.id } })
 		.sort("-date")
 		.then((likedPosts) => {
@@ -165,35 +186,64 @@ router.put("/api/posts/:id/replies", async (req, res, next) => {
 	});
 });
 
-//UPDATING POST LIKES COUNT
 router.put("/api/posts/:id", checkIfAuthenticated, (req, res, next) => {
 	Post.find(
 		{ _id: req.params.id, likedByIdArray: { $in: req.body.userId } },
 		async function (err, result) {
-			if (result.length > 0) {
-				//DECREASING LIKES COUNTER - $pullAll and $inc together in one curly
-				await Post.findOneAndUpdate(
-					{ _id: req.params.id },
-					{
-						$pullAll: { likedByIdArray: [req.body.userId] },
-						$inc: { likesCounter: -1 },
-					}
-				).then((result) => {});
-				res.status(200).json({ message: "Post updated" });
+			if (req.body.userId !== undefined) {
+				if (result.length > 0) {
+					//DECREASING LIKES COUNTER - $pullAll and $inc together in one curly
+					await Post.findOneAndUpdate(
+						{ _id: req.params.id },
+						{
+							$pullAll: { likedByIdArray: [req.body.userId] },
+							$inc: { likesCounter: -1 },
+						}
+					).then((result) => {
+						res
+							.status(200)
+							.json({ message: "Post updated", post: result, liked: false });
+					});
+				} else {
+					//INCREASING LIKES COUNTER - $push and $inc together in one curly
+					await Post.findOneAndUpdate(
+						{ _id: req.params.id },
+						{
+							$push: { likedByIdArray: [req.body.userId] },
+							$inc: { likesCounter: 1 },
+						}
+					).then((result) => {
+						res
+							.status(200)
+							.json({ message: "Post updated!", post: result, liked: true });
+					});
+				}
 			} else {
-				//INCREASING LIKES COUNTER - $push and $inc together in one curly
-				await Post.findOneAndUpdate(
-					{ _id: req.params.id },
-					{
-						$push: { likedByIdArray: [req.body.userId] },
-						$inc: { likesCounter: 1 },
-					}
-				).then((result) => {
-					res.status(200).json({ message: "Post updated!", post: result });
+				res.status(401).json({
+					message: "User unauthenticated",
 				});
 			}
 		}
 	);
 });
+router.get(
+	"/api/search/posts/:keyword",
+	checkIfAuthenticated,
+	async (req, res, next) => {
+		try {
+			await Post.find({
+				text: { $regex: req.params.keyword, $options: "i" },
+			})
+				.sort({ likesCounter: -1 })
+				.then((posts) => {
+					res.status(200).json({ message: "Posts found", posts: posts });
+				});
+		} catch (error) {
+			res.status(400).json({
+				message: "Posts not found",
+			});
+		}
+	}
+);
 
 module.exports = router;
