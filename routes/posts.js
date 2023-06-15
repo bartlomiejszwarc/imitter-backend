@@ -190,7 +190,7 @@ router.put("/api/posts/:id", checkIfAuthenticated, (req, res, next) => {
 	Post.find(
 		{ _id: req.params.id, likedByIdArray: { $in: req.body.userId } },
 		async function (err, result) {
-			if (req.body.userId !== undefined) {
+			if (req.body.userId !== undefined && req.body.userId !== null) {
 				if (result.length > 0) {
 					//DECREASING LIKES COUNTER - $pullAll and $inc together in one curly
 					await Post.findOneAndUpdate(
@@ -230,9 +230,10 @@ router.get(
 	"/api/search/posts/:keyword",
 	checkIfAuthenticated,
 	async (req, res, next) => {
+		let keyword = req.params.keyword.toString();
 		try {
 			await Post.find({
-				text: { $regex: req.params.keyword, $options: "i" },
+				text: { $regex: keyword, $options: "i" },
 			})
 				.sort({ likesCounter: -1 })
 				.then((posts) => {

@@ -76,36 +76,44 @@ router.get("/api/profile/:username", async (req, res, next) => {
 });
 
 //UPDATING USER DATA
-router.put("/api/users/:id", checkIfAuthenticated, (req, res, next) => {
-	if (checkUser(req.params.id, req.body.id)) {
-		User.findOneAndUpdate(
-			{ _id: req.params.id },
-			{
-				$set: {
-					displayName: req.body.displayName,
-					bio: req.body.bio,
-					location: req.body.location,
+router.put(
+	"/api/users/:id",
+	checkIfAuthenticated,
+	multer({ storage: storage }).single("profilePicture"),
+	multer({ storage: storage }).single("backgroundImage"),
+	(req, res, next) => {
+		if (checkUser(req.params.id, req.body.id)) {
+			User.findOneAndUpdate(
+				{ _id: req.params.id },
+				{
+					$set: {
+						displayName: req.body.displayName,
+						bio: req.body.bio,
+						location: req.body.location,
+						profilePicture: req.body.profilePicture,
+						backgroundImage: req.body.backgroundImage,
+					},
 				},
-			},
-			function (err, response) {
-				Post.updateMany(
-					{ "author._id": req.params.id },
-					{ "author.displayName": req.body.displayName }
-				)
-					.exec()
-					.then(
-						res.status(200).json({
-							message: "User data updated",
-						})
-					);
-			}
-		);
-	} else {
-		res.status(401).json({
-			message: "Unauthorized",
-		});
+				function (err, response) {
+					Post.updateMany(
+						{ "author._id": req.params.id },
+						{ "author.displayName": req.body.displayName }
+					)
+						.exec()
+						.then(
+							res.status(200).json({
+								message: "User data updated",
+							})
+						);
+				}
+			);
+		} else {
+			res.status(401).json({
+				message: "Unauthorized",
+			});
+		}
 	}
-});
+);
 
 router.put(
 	"/api/users/:id/follow",
@@ -169,5 +177,38 @@ router.get(
 		}
 	}
 );
+
+router.put("/api/users/:id/block", async (req, res, next) => {
+	try {
+		const result = await User.find({
+			_id: req.body.blockedByUserId,
+			blockedIds: { $in: req.params.id },
+		});
+
+		if (result.length === 0) {
+			await User.findOneAndUpdate(
+				{ _id: req.body.blockedByUserId },
+				{ $push: { blockedIds: req.params.id } }
+			).then(() => {
+				res.status(200).json({
+					message: "User data updated. User blocked",
+				});
+			});
+		} else {
+			await User.findOneAndUpdate(
+				{ _id: req.body.blockedByUserId },
+				{ $pullAll: { blockedIds: [req.params.id] } }
+			).then(() => {
+				res.status(200).json({
+					message: "User data updated. User unblocked",
+				});
+			});
+		}
+	} catch (error) {
+		res.status(404).json({
+			message: "User not found.",
+		});
+	}
+});
 
 module.exports = router;
