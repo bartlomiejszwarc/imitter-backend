@@ -55,8 +55,14 @@ router.post(
 );
 
 //FETCHING POSTS
-router.get("/api/posts", checkIfAuthenticated, (req, res, next) => {
-	Post.find({ allowDiskUse: true, isReply: false })
+router.get("/api/posts/:id", checkIfAuthenticated, async (req, res, next) => {
+	const user = await User.find({ _id: req.params.id }).exec();
+
+	Post.find({
+		allowDiskUse: true,
+		isReply: false,
+		"author._id": { $nin: user[0]?.blockedIds },
+	})
 		.sort({ date: -1 })
 		.then((documents) => {
 			res.status(200).json({

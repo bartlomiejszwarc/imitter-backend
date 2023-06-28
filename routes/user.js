@@ -188,7 +188,18 @@ router.put("/api/users/:id/block", async (req, res, next) => {
 		if (result.length === 0) {
 			await User.findOneAndUpdate(
 				{ _id: req.body.blockedByUserId },
-				{ $push: { blockedIds: req.params.id } }
+				{
+					$push: { blockedIds: req.params.id },
+					$pullAll: { followers: [req.params.id] },
+					$pullAll: { following: [req.params.id] },
+				}
+			);
+			await User.findOneAndUpdate(
+				{ _id: req.params.id },
+				{
+					$pullAll: { following: [req.body.blockedByUserId] },
+					$pullAll: { followers: [req.body.blockedByUserId] },
+				}
 			).then(() => {
 				res.status(200).json({
 					message: "User data updated. User blocked",
