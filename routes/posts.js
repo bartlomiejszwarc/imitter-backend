@@ -56,14 +56,22 @@ router.post(
 
 //FETCHING POSTS
 router.get("/api/posts/:id", checkIfAuthenticated, async (req, res, next) => {
-	const user = await User.find({ _id: req.params.id }).exec();
+	const user = await User.find({ _id: req.params.id })
+		.select("blockedIds")
+		.exec();
+	const blockedByUsers = await User.find({
+		blockedIds: { $in: req.params.id },
+	});
 
 	Post.find({
 		allowDiskUse: true,
 		isReply: false,
-		"author._id": { $nin: user[0]?.blockedIds },
+
+		"author._id": { $nin: user },
+		"author._id": { $nin: blockedByUsers },
 	})
 		.sort({ date: -1 })
+
 		.then((documents) => {
 			res.status(200).json({
 				message: "Post fetched succesfully!",
@@ -71,7 +79,6 @@ router.get("/api/posts/:id", checkIfAuthenticated, async (req, res, next) => {
 			});
 		});
 });
-
 router.get(
 	"/api/posts/following/:id",
 	checkIfAuthenticated,
@@ -151,7 +158,7 @@ router.delete(
 );
 
 //GETTING POST DETAILS
-router.get("/api/posts/:id", async (req, res, next) => {
+router.get("/api/posts/details/:id", async (req, res, next) => {
 	await Post.findById({ _id: req.params.id })
 		.then((document) => {
 			res.status(200).json({

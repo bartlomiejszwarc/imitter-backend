@@ -153,6 +153,38 @@ router.put(
 	}
 );
 
+router.get(
+	"/api/users/:username/following/top",
+	checkIfAuthenticated,
+	async (req, res, next) => {
+		try {
+			const user = await User.find({ username: req.params.username })
+				.select("following")
+				.then(async function (users) {
+					var usersdata = [];
+					var usersFollowing = users[0].following;
+					for (const u of usersFollowing) {
+						const userData = await User.findById(u);
+						usersdata.push(userData);
+					}
+					usersdata.sort((a, b) => b.followers.length - a.followers.length);
+					usersdata = usersdata.slice(0, 3);
+					return usersdata;
+				})
+				.then((usersdata) => {
+					res.status(200).json({
+						message: "User found",
+						user: usersdata,
+					});
+				});
+		} catch (error) {
+			res.status(404).json({
+				message: "User not found",
+			});
+		}
+	}
+);
+
 //Searching for users
 router.get(
 	"/api/search/users/:keyword",
