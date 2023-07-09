@@ -56,19 +56,18 @@ router.post(
 
 //FETCHING POSTS
 router.get("/api/posts/:id", checkIfAuthenticated, async (req, res, next) => {
-	const user = await User.find({ _id: req.params.id })
-		.select("blockedIds")
-		.exec();
+	const user = await User.find({ _id: req.params.id });
+
 	const blockedByUsers = await User.find({
 		blockedIds: { $in: req.params.id },
 	});
-
 	Post.find({
 		allowDiskUse: true,
 		isReply: false,
-
-		"author._id": { $nin: user },
-		"author._id": { $nin: blockedByUsers },
+		$and: [
+			{ "author._id": { $nin: user[0].blockedIds } },
+			{ "author._id": { $nin: blockedByUsers } },
+		],
 	})
 		.sort({ date: -1 })
 
@@ -205,7 +204,7 @@ router.put("/api/posts/:id", checkIfAuthenticated, (req, res, next) => {
 		async function (err, result) {
 			if (req.body.userId !== undefined && req.body.userId !== null) {
 				if (result.length > 0) {
-					//DECREASING LIKES COUNTER - $pullAll and $inc together in one curly
+					//DECREASING LIKES COUNTER
 					await Post.findOneAndUpdate(
 						{ _id: req.params.id },
 						{
@@ -218,7 +217,7 @@ router.put("/api/posts/:id", checkIfAuthenticated, (req, res, next) => {
 							.json({ message: "Post updated", post: result, liked: false });
 					});
 				} else {
-					//INCREASING LIKES COUNTER - $push and $inc together in one curly
+					//INCREASING LIKES COUNTER
 					await Post.findOneAndUpdate(
 						{ _id: req.params.id },
 						{
