@@ -140,12 +140,21 @@ router.delete(
 	checkIfAuthenticated,
 	async (req, res, next) => {
 		const postToBeDeleted = await Post.findById({ _id: req.params.id });
+
 		const postAuthorId = postToBeDeleted.author._id.valueOf();
 		const userId = req.body.userId;
 		if (checkUser(postAuthorId, userId)) {
-			postToBeDeleted.delete().then(() => {
-				res.status(200).json({
-					message: "Post deleted successfully. User authorized.",
+			const originalPost = postToBeDeleted.originalPost;
+			Post.findOneAndUpdate(
+				{ _id: originalPost },
+				{
+					$pullAll: { replies: [postToBeDeleted._id] },
+				}
+			).then(() => {
+				postToBeDeleted.delete().then(() => {
+					res.status(200).json({
+						message: "Post deleted successfully. User authorized.",
+					});
 				});
 			});
 		} else {
@@ -243,6 +252,7 @@ router.get(
 	checkIfAuthenticated,
 	async (req, res, next) => {
 		let keyword = req.params.keyword.toString();
+		keyword = keyword.replace(/[-[\]{}()*+?.,\\/^$|#\s]/g, "\\$&");
 		try {
 			await Post.find({
 				text: { $regex: keyword, $options: "i" },
