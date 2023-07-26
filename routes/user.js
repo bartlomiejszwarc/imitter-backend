@@ -58,21 +58,82 @@ router.get("/api/userdata/:userId", (req, res, next) => {
 	}
 });
 
-router.get("/api/profile/:username", async (req, res, next) => {
-	const userdata = await User.findOne({ username: req.params.username }).then(
-		(userdata) => {
-			if (userdata) {
-				res.status(200).json({
-					message: "User found.",
-					userdata: userdata,
-				});
-			} else {
-				res.status(404).json({
-					message: "User not found.",
-				});
+router.get(
+	"/api/profile/:username",
+	checkIfAuthenticated,
+	async (req, res, next) => {
+		const userdata = await User.findOne({ username: req.params.username }).then(
+			(userdata) => {
+				if (userdata) {
+					res.status(200).json({
+						message: "User found.",
+						userdata: userdata,
+					});
+				} else {
+					res.status(404).json({
+						message: "User not found.",
+					});
+				}
 			}
+		);
+	}
+);
+
+//PASSWORD CHANGE
+router.put(
+	"/api/profile/:username/password",
+	checkIfAuthenticated,
+	async (req, res, next) => {
+		if (checkUser(req.body.newPassword, req.body.repeatNewPassword)) {
+			bcrypt.hash(req.body.newPassword, 10).then((hash) => {
+				User.findOneAndUpdate(
+					{ username: req.body.username },
+					{ password: hash }
+				)
+					.exec()
+					.then(() => {
+						res.status(200).json({
+							message: "Password changed.",
+						});
+					});
+			});
+		} else {
+			res.status(401).json({
+				message: "User not found.",
+			});
 		}
-	);
+	}
+);
+
+//ACCOUNT DELETE
+router.delete("/api/users/:id/delete", async (req, res, next) => {
+	try {
+		const givenUserPassword = req.query.userPassword;
+		User.findById(req.params.id).then((user) => {
+			bcrypt.compare(
+				givenUserPassword,
+				user?.password,
+				async function (err, result) {
+					if (result) {
+						await Post.deleteMany({ "author._id": req.params.id });
+						await User.findOneAndDelete({ _id: req.params.id }).then(() => {
+							res.status(200).json({
+								message: "Password is valid. Account deleted.",
+							});
+						});
+					} else {
+						res.status(401).json({
+							message: "Password is not valid.",
+						});
+					}
+				}
+			);
+		});
+	} catch (e) {
+		res.status(401).json({
+			message: "User not found.",
+		});
+	}
 });
 
 //UPDATING USER DATA

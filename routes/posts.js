@@ -194,17 +194,20 @@ router.put("/api/posts/:id/replies", async (req, res, next) => {
 		originalPost: req.params.id,
 	});
 	reply.save();
-	Post.findOneAndUpdate(
-		{ _id: req.params.id },
+	Post.findByIdAndUpdate(
+		req.params.id,
 		{
 			$push: { replies: reply },
-		}
-	).then((document) => {
-		res.status(200).json({
-			post: document,
-			message: "Reply added successfully. User authorized.",
+		},
+		{ new: true }
+	)
+		.exec()
+		.then((document) => {
+			res.status(200).json({
+				post: document,
+				message: "Reply added successfully. User authorized.",
+			});
 		});
-	});
 });
 
 router.put("/api/posts/:id", checkIfAuthenticated, (req, res, next) => {

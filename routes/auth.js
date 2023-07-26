@@ -7,12 +7,30 @@ const multer = require("multer");
 const { expressjwt: jwtcheck } = require("express-jwt");
 const { default: mongoose } = require("mongoose");
 const Post = require("../models/post");
+//const { expressjwt: jwt } = require("express-jwt");
 
 const MIME_TYPE_MAP = {
 	"image/png": "png",
 	"image/jpeg": "jpg",
 	"image/jpg": "jpg",
 };
+
+function checkIfAuthenticated(req, res, next) {
+	const accessToken = req.params.accessToken;
+
+	try {
+		const decodedToken = jwt.verify(accessToken, process.env.SECRET);
+
+		req.decodedToken = decodedToken;
+		next();
+	} catch (error) {
+		res.status(401).json({
+			message: "Unauthorized",
+			userData: null,
+			isAuth: false,
+		});
+	}
+}
 
 //STORAGE FOR IMAGES
 const storage = multer.diskStorage({
@@ -78,13 +96,13 @@ router.post("/api/login", (req, res, next) => {
 					});
 				}
 				const token = jwt.sign({}, process.env.SECRET, {
-					expiresIn: "5h",
+					expiresIn: "1h",
 					subject: JSON.stringify(getUser._id.valueOf()),
 				});
 
 				res.status(200).json({
 					token: token,
-					expiresIn: "5h",
+					expiresIn: "1h",
 					message: "Token created.",
 				});
 			}
@@ -96,20 +114,12 @@ router.post("/api/login", (req, res, next) => {
 			});
 		});
 });
-router.get("/api/me/:accessToken", (req, res, next) => {
-	const decodedToken = jwt.decode(req.params.accessToken, process.env.SECRET);
-	if (decodedToken) {
-		res.status(200).json({
-			userData: decodedToken.sub,
-			isAuth: true,
-		});
-	} else {
-		res.status(401).json({
-			message: "Unauthorized",
-			userData: null,
-			isAuth: false,
-		});
-	}
+router.get("/api/me/:accessToken", checkIfAuthenticated, (req, res, next) => {
+	const decodedToken = req.decodedToken;
+	res.status(200).json({
+		userData: decodedToken.sub,
+		isAuth: true,
+	});
 });
 
 module.exports = router;
