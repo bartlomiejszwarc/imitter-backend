@@ -7,6 +7,7 @@ const multer = require("multer");
 const { expressjwt: jwtcheck } = require("express-jwt");
 const { default: mongoose } = require("mongoose");
 const Post = require("../models/post");
+const Notification = require("../models/notification");
 
 //FOR IMAGE UPLOAD
 const MIME_TYPE_MAP = {
@@ -185,6 +186,7 @@ router.put(
 				_id: req.params.id,
 				followers: { $in: req.body.followedByUserId },
 			});
+			//UNFOLLOW USER
 			if (result.length > 0) {
 				await User.findOneAndUpdate(
 					{ _id: req.params.id },
@@ -196,7 +198,10 @@ router.put(
 				);
 
 				res.json({ userdata: result, message: "Unfollowed", followed: false });
-			} else {
+			}
+			//FOLLOW USER
+			else {
+				const user = await User.findById(req.body.followedByUserId);
 				await User.findOneAndUpdate(
 					{ _id: req.params.id },
 					{ $push: { followers: req.body.followedByUserId } }
@@ -205,11 +210,41 @@ router.put(
 					{ _id: req.body.followedByUserId },
 					{ $push: { following: [req.params.id] } }
 				);
+				await Notification.create({
+					notificationFromUser: req.body.followedByUserId,
+					notificationOwner: req.params.id,
+					notificationText: "has started following you",
+					notificationType: "follow",
+					notificationSubject: "/profile/" + user.username,
+
+					date: new Date(),
+				});
 				res.json({ userdata: result, message: "Followed", followed: true });
 			}
 			next();
 		} catch (err) {
 			next(err);
+		}
+	}
+);
+
+router.get(
+	"/api/users/:id/notifications",
+	checkIfAuthenticated,
+	async (req, res) => {
+		try {
+			await Notification.find({ notificationOwner: req.params.id })
+				.sort({ date: "desc" })
+				.then((notification) => {
+					res.status(200).json({
+						notification: notification,
+						message: "Notifications fetched.",
+					});
+				});
+		} catch (e) {
+			res.status(401).json({
+				message: "Cannot get notifications",
+			});
 		}
 	}
 );
