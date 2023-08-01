@@ -134,28 +134,50 @@ const checkUser = function (instance, user, res) {
 		return true;
 	}
 };
-//DELETING POST
+
+async function deletePostAndReplies(postId) {
+	const post = await Post.findById(postId);
+
+	if (!post) {
+		return;
+	}
+
+	for (const replyId of post.replies) {
+		await deletePostAndReplies(replyId);
+	}
+
+	if (post.isReply && post.originalPost) {
+		const parentPost = await Post.findById(post.originalPost);
+		if (parentPost) {
+			parentPost.replies = parentPost.replies.filter(
+				(reply) => reply.toString() !== postId.toString()
+			);
+			await parentPost.save();
+		}
+	}
+
+	await post.delete();
+}
+
 router.delete(
 	"/api/posts/:id",
 	checkIfAuthenticated,
 	async (req, res, next) => {
-		const postToBeDeleted = await Post.findById({ _id: req.params.id });
+		const postToBeDeleted = await Post.findById(req.params.id);
+
+		if (!postToBeDeleted) {
+			return res.status(404).json({
+				message: "Post not found.",
+			});
+		}
 
 		const postAuthorId = postToBeDeleted.author._id.valueOf();
 		const userId = req.body.userId;
+
 		if (checkUser(postAuthorId, userId)) {
-			const originalPost = postToBeDeleted.originalPost;
-			Post.findOneAndUpdate(
-				{ _id: originalPost },
-				{
-					$pullAll: { replies: [postToBeDeleted._id] },
-				}
-			).then(() => {
-				postToBeDeleted.delete().then(() => {
-					res.status(200).json({
-						message: "Post deleted successfully. User authorized.",
-					});
-				});
+			await deletePostAndReplies(postToBeDeleted._id);
+			res.status(200).json({
+				message: "Post and its replies deleted successfully. User authorized.",
 			});
 		} else {
 			res.status(401).json({

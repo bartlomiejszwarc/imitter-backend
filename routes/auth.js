@@ -67,7 +67,7 @@ router.post(
 					});
 				})
 				.catch((error) => {
-					res.status(500).json({
+					res.status(401).json({
 						error: "Cannot create user. Username already taken.",
 					});
 				});
