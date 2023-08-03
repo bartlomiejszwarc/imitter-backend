@@ -210,13 +210,29 @@ router.put(
 					{ _id: req.body.followedByUserId },
 					{ $push: { following: [req.params.id] } }
 				);
+
+				let checkNotification = await Notification.find({
+					$and: [
+						{ notificationFromUser: req.body.followedByUserId },
+						{ notificationOwner: req.params.id },
+						{ notificationType: "follow" },
+					],
+				});
+				if (checkNotification) {
+					await Notification.findOneAndDelete({
+						$and: [
+							{ notificationFromUser: req.body.followedByUserId },
+							{ notificationOwner: req.params.id },
+							{ notificationType: "follow" },
+						],
+					});
+				}
 				await Notification.create({
 					notificationFromUser: req.body.followedByUserId,
 					notificationOwner: req.params.id,
 					notificationText: "has started following you",
 					notificationType: "follow",
 					notificationSubject: "/profile/" + user.username,
-
 					date: new Date(),
 				});
 				res.json({ userdata: result, message: "Followed", followed: true });
@@ -228,13 +244,18 @@ router.put(
 	}
 );
 
+//GET NOTIFICATIONS
 router.get(
 	"/api/users/:id/notifications",
 	checkIfAuthenticated,
 	async (req, res) => {
 		try {
-			await Notification.find({ notificationOwner: req.params.id })
-				.sort({ date: "desc" })
+			Notification.find({
+				notificationOwner: req.params.id,
+			})
+				.sort({ date: -1 })
+				.exec()
+
 				.then((notification) => {
 					res.status(200).json({
 						notification: notification,
