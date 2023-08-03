@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 const Post = require("../models/post");
 const User = require("../models/user");
 const checkAuth = require("../middleware/check-auth");
+const Notification = require("../models/notification");
 
 const checkIfAuthenticated = jwt({
 	secret: process.env.SECRET,
@@ -215,7 +216,40 @@ router.put("/api/posts/:id/replies", async (req, res, next) => {
 		isReply: true,
 		originalPost: req.params.id,
 	});
+
+	const originalPostAuthor = await Post.findOne({ _id: req.params.id })
+		.select("author")
+		.exec();
 	reply.save();
+
+	if (reply.author._id.valueOf() !== originalPostAuthor.author._id.valueOf()) {
+		// let checkNotification = await Notification.find({
+		// 	$and: [
+		// 		{ notificationFromUser: reply.author._id },
+		// 		{ notificationOwner: originalPostAuthor.author._id },
+		// 		{ notificationType: "reply" },
+		// 	],
+		// });
+		// if (checkNotification) {
+		// await Notification.findOneAndDelete({
+		// 	$and: [
+		// 		{ notificationFromUser: reply.author._id },
+		// 		{ notificationOwner: originalPostAuthor.author._id },
+		// 		{ notificationType: "reply" },
+		// 	],
+		// });
+	}
+	await Notification.create({
+		notificationFromUser: reply.author._id,
+		notificationOwner: originalPostAuthor.author._id,
+		notificationText: "replied to your post",
+		notificationType: "reply",
+		notificationSubject:
+			"/profile/" + originalPostAuthor.author.username + "/status/" + reply.id,
+		date: new Date(),
+		read: false,
+	});
+	//}
 	Post.findByIdAndUpdate(
 		req.params.id,
 		{
@@ -236,6 +270,9 @@ router.put("/api/posts/:id", checkIfAuthenticated, (req, res, next) => {
 	Post.find(
 		{ _id: req.params.id, likedByIdArray: { $in: req.body.userId } },
 		async function (err, result) {
+			const postAuthor = await Post.findOne({ _id: req.params.id })
+				.select("author")
+				.exec();
 			if (req.body.userId !== undefined && req.body.userId !== null) {
 				if (result.length > 0) {
 					//DECREASING LIKES COUNTER
@@ -252,6 +289,38 @@ router.put("/api/posts/:id", checkIfAuthenticated, (req, res, next) => {
 					});
 				} else {
 					//INCREASING LIKES COUNTER
+					if (req.body.userId !== postAuthor.author._id.valueOf()) {
+						let checkNotification = await Notification.find({
+							$and: [
+								{ notificationFromUser: req.body.userId },
+								{ notificationOwner: postAuthor.author._id },
+								{ notificationType: "like" },
+							],
+						});
+						if (checkNotification) {
+							await Notification.findOneAndDelete({
+								$and: [
+									{ notificationFromUser: req.body.userId },
+									{ notificationOwner: postAuthor.author._id },
+									{ notificationType: "like" },
+								],
+							});
+						}
+						await Notification.create({
+							notificationFromUser: req.body.userId,
+							notificationOwner: postAuthor.author._id,
+							notificationText: "liked your post",
+							notificationType: "like",
+							notificationSubject:
+								"/profile/" +
+								postAuthor.author.username +
+								"/status/" +
+								req.params.id,
+							date: new Date(),
+							read: false,
+						});
+					}
+
 					await Post.findOneAndUpdate(
 						{ _id: req.params.id },
 						{

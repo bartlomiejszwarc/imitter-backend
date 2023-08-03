@@ -230,10 +230,11 @@ router.put(
 				await Notification.create({
 					notificationFromUser: req.body.followedByUserId,
 					notificationOwner: req.params.id,
-					notificationText: "has started following you",
+					notificationText: "started following you",
 					notificationType: "follow",
 					notificationSubject: "/profile/" + user.username,
 					date: new Date(),
+					read: false,
 				});
 				res.json({ userdata: result, message: "Followed", followed: true });
 			}
@@ -265,6 +266,27 @@ router.get(
 		} catch (e) {
 			res.status(401).json({
 				message: "Cannot get notifications",
+			});
+		}
+	}
+);
+
+//MARK NOTIFICATIONS AS READ
+router.put(
+	"/api/users/:id/notifications/markasread",
+	checkIfAuthenticated,
+	async (req, res) => {
+		try {
+			await Notification.updateMany(
+				{ notificationOwner: req.params.id },
+				{ $set: { read: true } }
+			);
+			res.status(200).json({
+				message: "Notifications marked as read.",
+			});
+		} catch (e) {
+			res.status(401).json({
+				message: "No authorization or user not found.",
 			});
 		}
 	}
